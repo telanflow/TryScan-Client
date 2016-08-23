@@ -1,0 +1,93 @@
+﻿
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<link rel="stylesheet" href="/css/bootstrap.min.css">
+<link rel="stylesheet" href="/css/bootstrap-theme.min.css">
+<script src="js/jquery.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/popup.js"></script>
+<style type="text/css">
+	body{
+		margin: 0;
+		padding: 4px;
+		font-size: 14px;
+		color: #333;
+		width: 185px;
+		height: 300px;
+		background: url('image/bg_off.png');
+	}
+    .about{
+        position: relative;
+        top: 6px;
+        right: 1px;
+        float: right;
+    }
+	.base-panel{
+		height: 100%;
+        width: 100%;
+        background: #fff;
+        padding: 7px 5px;
+	}
+    .panel-title{
+        border-bottom: 1px solid #ccc;
+        padding: 5px;
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .title-small{
+        font-size: 12px;
+        color: #9d9d9d;
+        font-weight: normal;
+    }
+    .base-input{
+        width: 100%;
+        padding: 6px 6px;
+        height: 24px;
+    }
+    .label-small{
+        font-size: 12px;
+        color: #333;
+    }
+    .mb-5{margin-bottom: 2px;}
+    .range{
+        width: 20px;
+        height: 20px;
+        border-radius: 100%;
+        background-color: #4dc4e7;
+        float: right;
+        cursor: pointer;
+        position: absolute;
+        right: 10px;
+        top: 37%;
+        border:none;
+    }
+    .range:hover{background-color: #1d91c4;}
+    .textarea-host{
+        width: 100%;
+        height: 100px !important;
+        margin-bottom: 8px;
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+</style>
+<div class="base-panel">
+	<div class="panel-title">Tsc 设置 <span class="title-small">(by TryScan)</span></div>
+
+    <div class="label-small">服务器地址：</div>
+    <input type="text" class="form-control base-input mb-5" id="server_address" value="127.0.0.1:5000">
+
+    <div class="label-small">Client_ID：</div>
+    <input type="text" class="form-control base-input mb-5" style="width:82%;" placeholder="" id="client_id" value="">
+    <span class="range" id="random_str" title="获取ClientID"></span>
+
+    <div class="label-small">域名白名单：</div>
+    <textarea class="form-control textarea-host" placeholder="域名格式：*.try255.com 换行分隔" id="hosts"></textarea>
+
+    <button class="btn btn-info btn-sm" id="btn-listen">开始监听</button>
+
+    <div class="about">
+        <a href="https://git.oschina.net/ziiber/TryScanClient" title="about" target="_blank">
+            <img src="image/about.png" style="width: 16px;height: 16px;">
+        </a>
+    </div>
+</div>
