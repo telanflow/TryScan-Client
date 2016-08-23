@@ -2,7 +2,7 @@
   * TryScan自动化Sql检测工具浏览器插件
 
 
-* ![Alt text](http://d3.freep.cn/3tb_160722015410g0oo569789.png "Tsc 设置")
+* ![Alt text](https://raw.githubusercontent.com/ziiber/TryScan-Client/master/pre.png "Tsc 设置")
 
 ### 开发人员
 * Try [ziiber@foxmail.com](http://ziiber.me)
