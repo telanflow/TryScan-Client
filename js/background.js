@@ -187,9 +187,12 @@ function getParams(params)
                 result.push( key + '=' + formData[key] );
             return encodeURIComponent(result.join('&'));
         }
+        // 解析原始数据
         else if(typeof(params.raw) == 'object') {
-            var raw = params.raw; // 原始数据，暂不处理
-            return encodeURIComponent(raw);
+            if (Array.isArray(params.raw) && params.raw.length == 1) {
+                var raw = String.fromCharCode.apply(null, new Uint8Array(params.raw[0].bytes));
+                return encodeURIComponent(raw);
+            }
         }
     }
 	return false;
