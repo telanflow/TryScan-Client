@@ -13,9 +13,21 @@ var filter = {
 
 localStorage.setItem('isOpen', 0);
 
+let asyncfy = fn => (...args) => {
+    return new Promise((resolve, reject) => {
+      fn(...args, (...results) => {
+        let { lastError } = chrome.runtime
+        if (typeof lastError !== 'undefined') reject(lastError);
+        else results.length == 1 ? resolve(results[0]) : resolve(results);
+      });
+    });
+  }
+
 // 获取请求中的参数
 var callRequest = function(details)
 {
+    console.log('callRequest: ', details)
+
     var requestId = Number(details.requestId);
     if(typeof(gRequest[requestId]) == 'undefined')
     {
@@ -34,12 +46,23 @@ var callRequest = function(details)
             var params = getParams(details.requestBody);
             gRequest[requestId].data = params ? params : '';
         }
+    } else {
+        //如果一个get提交的url都没有参数，那么就直接终止程序。
+        var index = details.url.indexOf('?');
+        if(index == -1){
+
+        }else{
+            var params = details.url.substr(index+1);
+            gRequest[requestId].data = params ? params : '';
+        }
     }
 };
 
 // 获取请求中的Headers
-var callReqGetCookie = function(details)
+var callReqGetCookie = async (details) => 
 {
+    console.log('callReqGetCookie: ', details)
+
     var requestId = Number(details.requestId);
     if(typeof(gRequest[requestId]) == 'undefined')
     {
@@ -68,15 +91,19 @@ var callReqGetCookie = function(details)
         }
     }
 
+    // 获取cookies
+    var uri = new URL(details.url);
+    var cookieList = await asyncfy(chrome.cookies.getAll)({domain: uri.host});
+    var cookies = cookieList.map((cookie) => {
+        return cookie.name + '=' + cookie.value;
+    }).join(';');
+    gRequest[requestId].cookie = cookies;
+
     var headers = {},
         total = details.requestHeaders.length;
 
     for(var i = 0; i<total; i++){
         headers[details.requestHeaders[i].name] = details.requestHeaders[i].value;
-    }
-    if(typeof(headers.Cookie) != 'undefined'){
-        gRequest[requestId].cookie = headers.Cookie;
-        delete headers.Cookie;
     }
     if(typeof(headers['User-Agent']) != 'undefined'){
         gRequest[requestId].user_agent = headers['User-Agent'];
@@ -163,7 +190,7 @@ function sendPost(url, params)
     {
         var reqParams = [];
         for(var key in params){
-            reqParams.push(key + '=' + params[key]);
+            reqParams.push(key + '=' + encodeURIComponent(params[key]));
         }
 
         xhr = new XMLHttpRequest();
