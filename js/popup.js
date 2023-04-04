@@ -2,13 +2,15 @@ $(document).ready(function(){
 	init();
 
     // 获取Client_ID
-    $('#random_str').click(function(){
-        var isOpen = Number(localStorage.getItem('isOpen'));
-        if(!isOpen){
-            var str = random_no();
-            $('#client_id').val(str);
-            localStorage.setItem('clientNo', str);
-        }
+    $('#random_str').click(function() {
+        chrome.storage.local.get('isOpen', (resp) => {
+            var isOpen = Number(resp.isOpen);
+            if(!isOpen) {
+                var str = random_no();
+                $('#client_id').val(str);
+                chrome.storage.local.set({'clientNo': str});
+            }
+        })
     });
 
     // 监听按钮
@@ -26,7 +28,7 @@ $(document).ready(function(){
             client_no: client_no
         };
 
-        switch(flag){
+        switch(flag) {
             case '开始监听':
                 params.isOpen = 1;
                 break;
@@ -42,32 +44,33 @@ $(document).ready(function(){
     });
 
     $('#hosts').change(function(){
-        localStorage.setItem('hostList', $.trim($(this).val()));
+        chrome.storage.local.set({'hostList': $.trim($(this).val())});
     });
 
     $('#server_address').change(function(){
-        localStorage.setItem('serverAddress', $.trim($(this).val()));
+        chrome.storage.local.set({'serverAddress': $.trim($(this).val())});
     });
 
     $('#client_id').blur(function(){
-        localStorage.setItem('clientNo', $.trim($(this).val()));
+        chrome.storage.local.set({'clientNo': $.trim($(this).val())});
     });
 });
 
-function init(){
+function init() {
     // 插件启动的时候获取一下localStorage中保存的值
-    var isOpen = Number(localStorage.getItem('isOpen')),
-        hostList = localStorage.getItem('hostList'),
-        serverAddress = localStorage.getItem('serverAddress'),
-        clientNo = localStorage.getItem('clientNo');
-
-    $('#hosts').val(hostList);
-    $('#client_id').val(clientNo);
-    $('#server_address').val(serverAddress);
-
-    //var isOpen=0;
-    // 更新按钮状态
-    updateBtnStatus(isOpen);
+    chrome.storage.local.get(['isOpen', 'hostList', 'serverAddress', 'clientNo'], (resp) => {
+        let hostList = '';
+        if (typeof resp?.hostList === 'object' && Array.isArray(resp.hostList)) {
+            hostList = resp?.hostList.join("\n");
+        }
+        $('#hosts').val(hostList);
+        $('#client_id').val(resp.clientNo);
+        $('#server_address').val(resp.serverAddress);
+    
+        //var isOpen=0;
+        // 更新按钮状态
+        updateBtnStatus(resp.isOpen);
+    });
 }
 
 // 更新按钮状态
@@ -98,14 +101,12 @@ function sendBgMessage(params)
 {
 	if( typeof(params.isOpen) != 'undefined' ){
 		var isOpen = Number(params.isOpen);
-		// 保存开关消息到localStorage
-		localStorage.setItem('isOpen', isOpen);
 		// 更新按钮状态
 		updateBtnStatus(isOpen);
 	}
 
 	// 发送消息到background.js
-	chrome.extension.sendMessage(params);
+	chrome.runtime.sendMessage(params);
 }
 
 // 随机字符串

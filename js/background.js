@@ -1,17 +1,23 @@
 // 全局变量
 var gRequest = [],
-    reqResult = {},
-    serverAddress = '', // 服务器地址
-    clientNo = ''; // 客户端唯一标识
+    reqResult = {};
 
-// urls  过滤网址 所有：<all_urls>  
-// types 过滤类型 "main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"
-var filter = {
-	urls:[],
-    types: ["main_frame", "sub_frame", "xmlhttprequest"]
-};
+chrome.runtime.onInstalled.addListener(function () {
+    console.log("Tsc插件初始化");
 
-localStorage.setItem('isOpen', 0);
+    chrome.storage.local.set({
+        // 是否开启
+        isOpen: 0,
+        // 域名列表
+        hostList: [],
+        // urls  过滤网址 所有：<all_urls>  
+        // types 过滤类型 "main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"
+        filter: {
+            urls: [],
+            types: ["main_frame", "sub_frame", "xmlhttprequest"]
+        }
+    });
+});
 
 let asyncfy = fn => (...args) => {
     return new Promise((resolve, reject) => {
@@ -47,7 +53,7 @@ var callRequest = function(details)
             gRequest[requestId].data = params ? params : '';
         }
     } else {
-        //如果一个get提交的url都没有参数，那么就直接终止程序。
+        //如果一个get提交的url都没有参数，那么就直接返回.
         var index = details.url.indexOf('?');
         if(index == -1){
 
@@ -59,119 +65,144 @@ var callRequest = function(details)
 };
 
 // 获取请求中的Headers
-var callReqGetCookie = async (details) => 
+var callReqGetCookie = (details) => 
 {
     console.log('callReqGetCookie: ', details)
 
-    var requestId = Number(details.requestId);
-    if(typeof(gRequest[requestId]) == 'undefined')
-    {
-        gRequest[requestId] = {
-            method: details.method,
-            url: details.url,
-            client_no: clientNo,
-            data: '',
-            cookie: '',
-            user_agent: '',
-            referer: ''
-        };
-    }
+    chrome.storage.local.get(['clientNo', 'serverAddress'], async (resp) => {
+        let clientNo = resp.clientNo;
+        let serverAddress = resp.serverAddress;
 
-    if(details.method == 'GET')
-    {
-        //如果一个get提交的url都没有参数，那么就直接终止程序。
-        var index = details.url.indexOf('?');
-        if(index == -1){
-            return;
-        }else{
-            var getParam = details.url.substr(index+1);
-            if(getParam == ''){
+        var requestId = Number(details.requestId);
+        if(typeof(gRequest[requestId]) == 'undefined')
+        {
+            gRequest[requestId] = {
+                method: details.method,
+                url: details.url,
+                client_no: clientNo,
+                data: '',
+                cookie: '',
+                user_agent: '',
+                referer: ''
+            };
+        }
+
+        if(details.method == 'GET')
+        {
+            //如果一个get提交的url都没有参数，那么就直接终止程序。
+            var index = details.url.indexOf('?');
+            if(index == -1){
                 return;
+            }else{
+                var getParam = details.url.substr(index+1);
+                if(getParam == ''){
+                    return;
+                }
             }
         }
-    }
 
-    // 获取cookies
-    var uri = new URL(details.url);
-    var cookieList = await asyncfy(chrome.cookies.getAll)({domain: uri.host});
-    var cookies = cookieList.map((cookie) => {
-        return cookie.name + '=' + cookie.value;
-    }).join(';');
-    gRequest[requestId].cookie = cookies;
+        // 获取cookies
+        var uri = new URL(details.url);
+        var cookieList = await asyncfy(chrome.cookies.getAll)({domain: uri.host});
+        var cookies = cookieList.map((cookie) => {
+            return cookie.name + '=' + cookie.value;
+        }).join(';');
+        gRequest[requestId].cookie = cookies;
 
-    var headers = {},
-        total = details.requestHeaders.length;
+        var headers = {},
+            total = details.requestHeaders.length;
 
-    for(var i = 0; i<total; i++){
-        headers[details.requestHeaders[i].name] = details.requestHeaders[i].value;
-    }
-    if(typeof(headers['User-Agent']) != 'undefined'){
-        gRequest[requestId].user_agent = headers['User-Agent'];
-        delete headers['User-Agent'];
-    }
-    if(typeof(headers['Referer']) != 'undefined'){
-        gRequest[requestId].referer = headers['Referer'];
-        delete headers['Referer'];
-    }
-    gRequest[requestId].headers = JSON.stringify(headers);
+        for(var i = 0; i<total; i++){
+            headers[details.requestHeaders[i].name] = details.requestHeaders[i].value;
+        }
+        if(typeof(headers['User-Agent']) != 'undefined'){
+            gRequest[requestId].user_agent = headers['User-Agent'];
+            delete headers['User-Agent'];
+        }
+        if(typeof(headers['Referer']) != 'undefined'){
+            gRequest[requestId].referer = headers['Referer'];
+            delete headers['Referer'];
+        }
+        gRequest[requestId].headers = JSON.stringify(headers);
 
-    // 发送最后json reqResult对象给api
-	sendPost('http://' + serverAddress + '/task/add', gRequest[requestId]);
+        // 发送最后json reqResult对象给api
+        sendPost('http://' + serverAddress + '/task/add', gRequest[requestId]);
+    })
 };
 
 // Popup页面消息回调
 function getPopupMessage(request, sender, sendResponse)
 {
 	// 得到Popup.js的开关信息后，可以把值设置到一个全局变量上，callRequest函数里面判断这个值即可。
-	var isOpen = Number(request.isOpen);
+	let isOpen = Number(request.isOpen);
+    let serverAddress = request.server_address;
+    let clientNo = request.client_no;
+    let hostList = request.hostList;
 
-	if( isOpen )
-	{
-        // 设置服务器地址  客户端唯一标识
-        serverAddress = request.server_address;
-        clientNo = request.client_no;
+    // 保存
+    chrome.storage.local.set({
+        // 插件开关
+        isOpen: isOpen,
+        // 设置服务器地址
+        serverAddress: serverAddress,
+        // 客户端唯一标识
+        clientNo: clientNo,
+        // 域名列表
+        hostList: hostList,
+    });
 
-        // 白名单设置
-        var whites = [],
-            hostList = request.hostList;
-
-		//处理每一个域名，改为标准的过滤表达式 如*://w.com/*
-		for(var i in hostList)
-		{
-			//如果加了http://或者https://协议头，去掉协议头，改为*：//+domain
-			if(hostList[i].substr(4,3)=='://' || hostList[i].substr(5,3)=="://"){
-				var temp = hostList[i];
-				index = temp.indexOf('://');
-				domain = temp.substr(index+3);
-				hostList[i] = "*://"+domain;
-			}else{
-				hostList[i] = '*://' + hostList[i]; // 如果没有加协议头，直接添加*://+domain
-			}
-			// 如果最后一位是/，比如http://w.com/,则直接最末尾添加*，如果不是则添加/*
-			// 最后整理出chrome的标准的表达式是：*://w.com/*
-			if(hostList[i].substr(hostList[i].length-1) == '/'){
-				hostList[i] += '*';
-			}
-			else{
-				hostList[i] += '/*';
-			}
-			whites.push(hostList[i]);
-		}
-		// console.log(whites); //打印白名单列表
-		filter.urls = whites;
+    // 取消监听
+	if( isOpen == 0 ) {
+		chrome.webRequest.onBeforeRequest.removeListener(callRequest);
+		chrome.webRequest.onBeforeSendHeaders.removeListener(callReqGetCookie);
+        return;
 	}
-	
-	// 插件的开关
-	listener(isOpen);
+
+    // 白名单设置
+    let whites = [];
+    // 处理每一个域名，改为标准的过滤表达式 如*://w.com/*
+    for(let i in hostList)
+    {
+        //如果加了http://或者https://协议头，去掉协议头，改为*：//+domain
+        if(hostList[i].substr(4,3)=='://' || hostList[i].substr(5,3)=="://"){
+            var temp = hostList[i];
+            index = temp.indexOf('://');
+            domain = temp.substr(index+3);
+            hostList[i] = "*://"+domain;
+        }else{
+            hostList[i] = '*://' + hostList[i]; // 如果没有加协议头，直接添加*://+domain
+        }
+        // 如果最后一位是/，比如http://w.com/,则直接最末尾添加*，如果不是则添加/*
+        // 最后整理出chrome的标准的表达式是：*://w.com/*
+        if(hostList[i].substr(hostList[i].length-1) == '/'){
+            hostList[i] += '*';
+        }
+        else{
+            hostList[i] += '/*';
+        }
+        whites.push(hostList[i]);
+    }
+
+    //打印白名单列表
+    // console.log(whites); 
+
+    chrome.storage.local.get('filter', (resp) => {
+        let filter = resp.filter;
+        filter.urls = whites;
+        chrome.storage.local.set({filter: filter});
+	    // 开启监听
+		chrome.webRequest.onBeforeRequest.addListener(callRequest, filter, ["requestBody"]);
+        chrome.webRequest.onBeforeSendHeaders.addListener(callReqGetCookie, filter, ['requestHeaders']);
+    });
 }
 
 // 插件的所有动作都以消息回调来驱动
-chrome.extension.onMessage.addListener(getPopupMessage); // 监听消息
+chrome.runtime.onMessage.addListener(getPopupMessage); // 监听消息
 
 // 插件的开关
 function listener(isOpen)
 {
-	if(isOpen){
+	if(isOpen) {
         // 开启监听
 		chrome.webRequest.onBeforeRequest.addListener(callRequest, filter, ["blocking", "requestBody"]);
         chrome.webRequest.onBeforeSendHeaders.addListener(callReqGetCookie, filter, ['blocking', 'requestHeaders']);
@@ -183,21 +214,26 @@ function listener(isOpen)
 }
 
 // Send Request
-function sendPost(url, params)
-{
+const sendPost = async (url, params) => {
     console.log(params);
     if(url && typeof(params) != 'undefined')
     {
-        var reqParams = [];
+        let reqParams = [];
         for(var key in params){
             reqParams.push(key + '=' + encodeURIComponent(params[key]));
         }
 
-        xhr = new XMLHttpRequest();
-        xhr.open('POST', url, true);
-        // xhr.setRequestHeader("Content-type", "application/json");
-        xhr.setRequestHeader( "Content-type", "application/x-www-form-urlencoded; charset=UTF-8");
-        xhr.send(reqParams.join('&'));
+        let opts = {
+            method: 'POST',
+            headers: {
+                'Content-type': 'application/x-www-form-urlencoded',
+                'charset': 'UTF-8',
+            },
+            body: reqParams.join('&'),
+            mode: 'no-cors',
+        };
+        const response = await fetch(url, opts);
+        // console.log(response);
     }
 }
 
